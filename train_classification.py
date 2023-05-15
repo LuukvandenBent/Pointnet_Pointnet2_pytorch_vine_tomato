@@ -28,18 +28,18 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--use_cpu', action='store_true', default=False, help='use cpu mode')
     parser.add_argument('--gpu', type=str, default='0', help='specify gpu device')
-    parser.add_argument('--batch_size', type=int, default=24, help='batch size in training')
-    parser.add_argument('--model', default='pointnet_cls', help='model name [default: pointnet_cls]')
-    parser.add_argument('--num_category', default=40, type=int, choices=[10, 40],  help='training on ModelNet10/40')
+    parser.add_argument('--batch_size', type=int, default=15, help='batch size in training')
+    parser.add_argument('--model', default='pointnet2_cls_ssg', help='model name [default: pointnet2_cls_ssg]')
+    parser.add_argument('--num_category', default=2, type=int, choices=[2],  help='training on custom data')
     parser.add_argument('--epoch', default=200, type=int, help='number of epoch in training')
-    parser.add_argument('--learning_rate', default=0.001, type=float, help='learning rate in training')
-    parser.add_argument('--num_point', type=int, default=1024, help='Point Number')
+    parser.add_argument('--learning_rate', default=0.00001, type=float, help='learning rate in training')
+    parser.add_argument('--num_point', type=int, default=2048, help='Point Number')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer for training')
     parser.add_argument('--log_dir', type=str, default=None, help='experiment root')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--use_normals', action='store_true', default=False, help='use normals')
     parser.add_argument('--process_data', action='store_true', default=False, help='save data offline')
-    parser.add_argument('--use_uniform_sample', action='store_true', default=False, help='use uniform sampiling')
+    parser.add_argument('--use_uniform_sample', action='store_true', default=True, help='use uniform sampiling')
     return parser.parse_args()
 
 
@@ -49,7 +49,7 @@ def inplace_relu(m):
         m.inplace=True
 
 
-def test(model, loader, num_class=40):
+def test(model, loader, num_class=2):
     mean_correct = []
     class_acc = np.zeros((num_class, 3))
     classifier = model.eval()
@@ -61,6 +61,7 @@ def test(model, loader, num_class=40):
 
         points = points.transpose(2, 1)
         pred, _ = classifier(points)
+        print(pred, target)
         pred_choice = pred.data.max(1)[1]
 
         for cat in np.unique(target.cpu()):
@@ -116,7 +117,7 @@ def main(args):
 
     '''DATA LOADING'''
     log_string('Load dataset ...')
-    data_path = 'data/modelnet40_normal_resampled/'
+    data_path = 'data/'
 
     train_dataset = ModelNetDataLoader(root=data_path, args=args, split='train', process_data=args.process_data)
     test_dataset = ModelNetDataLoader(root=data_path, args=args, split='test', process_data=args.process_data)
@@ -177,8 +178,10 @@ def main(args):
 
             points = points.data.numpy()
             points = provider.random_point_dropout(points)
-            points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
-            points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
+            #points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
+            #points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
+            points[:, :, :3] = provider.rotate_perturbation_point_cloud(points[:, :, :3])
+            points[:, :, :3] = provider.jitter_point_cloud(points[:, :, :3])
             points = torch.Tensor(points)
             points = points.transpose(2, 1)
 
@@ -186,7 +189,10 @@ def main(args):
                 points, target = points.cuda(), target.cuda()
 
             pred, trans_feat = classifier(points)
+            print(pred, target)
             loss = criterion(pred, target.long(), trans_feat)
+            print("LOSS EQUALS : ", loss)
+            #print("PRED EQUALS : ", pred.data)
             pred_choice = pred.data.max(1)[1]
 
             correct = pred_choice.eq(target.long().data).cpu().sum()
