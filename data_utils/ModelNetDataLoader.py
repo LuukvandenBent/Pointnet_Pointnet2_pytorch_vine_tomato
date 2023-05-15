@@ -45,6 +45,10 @@ def farthest_point_sample(point, npoint):
     point = point[centroids.astype(np.int32)]
     return point
 
+def uniform_point_sample(point, npoint):#Only works when the points are 'ordered'
+    indices = np.linspace(0, point.shape[0]-1, npoint, dtype=int)
+    return point[indices]
+
 
 class ModelNetDataLoader(Dataset):
     def __init__(self, root, args, split='train', process_data=False):
@@ -121,7 +125,8 @@ class ModelNetDataLoader(Dataset):
             point_set = np.loadtxt(fn[1], delimiter=',').astype(np.float32)
 
             if self.uniform:
-                point_set = farthest_point_sample(point_set, self.npoints)
+                #point_set = farthest_point_sample(point_set, self.npoints)
+                point_set = uniform_point_sample(point_set, self.npoints)
             else:
                 point_set = point_set[0:self.npoints, :]
                 
