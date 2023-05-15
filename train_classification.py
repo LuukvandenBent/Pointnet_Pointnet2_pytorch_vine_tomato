@@ -61,7 +61,7 @@ def test(model, loader, num_class=2):
 
         points = points.transpose(2, 1)
         pred, _ = classifier(points)
-        print(pred, target)
+        #print(pred, target)
         pred_choice = pred.data.max(1)[1]
 
         for cat in np.unique(target.cpu()):
@@ -189,7 +189,7 @@ def main(args):
                 points, target = points.cuda(), target.cuda()
 
             pred, trans_feat = classifier(points)
-            print(pred, target)
+            #print(pred, target)
             loss = criterion(pred, target.long(), trans_feat)
             print("LOSS EQUALS : ", loss)
             #print("PRED EQUALS : ", pred.data)
